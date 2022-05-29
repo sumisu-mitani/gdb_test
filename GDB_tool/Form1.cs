@@ -300,6 +300,8 @@ namespace GDB_tool
                 }
                 uint addr;
                 uint.TryParse(addrStr, System.Globalization.NumberStyles.HexNumber, null,out addr);
+
+                textBox1.Text = addrStr;
                 return;
             }
         }
@@ -335,79 +337,143 @@ namespace GDB_tool
                     buffer += Buffer[i];
                 }
                 Debug.WriteLine(buffer);
+                buffer = buffer.Replace("}", " } ");
+                buffer = buffer.Replace("{", " { ");
+                buffer = buffer.Replace(",", " , ");
                 string[] split = (buffer.Split(new string[] { " ", "  " }, StringSplitOptions.RemoveEmptyEntries));
-                List<string> wk_struct = new List<string>();
 
-                for(int i = 0; i < split.Length; i++)
+
+                int wk_line = 0;
+                int wk_columm = 0;
+                int[] wk_group = { 0,0,0,0};
+                int wk_group_cnt = 0;
+                string[,] wk_str = new string[250,20];
+                for (int i = 2; i < split.Length; i++)
                 {
                     if (split[i] == "{")
                     {
-                        wk_struct.Add("{");
-                    }
-                   else if (split[i].Contains("{0x0"))
-                    {
-                        int wk_cnt_str = split[i].Split('{').Length - 1;// {の数
-                        for(int j=0; j < wk_cnt_str; j++)
+                        if(split[i+1] == "{")
                         {
-                            wk_struct.Add("{");
-
+                            wk_str[wk_columm, wk_line] = "[" + wk_group[wk_group_cnt].ToString() + "]";
+                            wk_line++;
+                        }
+                        else if(split[i+1].Contains("0x"))
+                        {
+                            wk_str[wk_columm, wk_line] = "[" + wk_group[wk_group_cnt].ToString() + "]";
+                            wk_line++;
+                        }
+                        else
+                        {
+                            wk_str[wk_columm, wk_line] = "--";
+                            wk_line++;
                         }
                     }
-                    else if (split[i].Contains("{"))
+                    else if (split[i] == "}")
                     {
-                        wk_struct.Add("{");
-                        wk_struct.Add(split[i].Remove(0,1));
+
+                        if ((wk_str[wk_columm, wk_line]!=null)&&(wk_str[wk_columm, wk_line].Contains("[")))
+                        {
+                            wk_line -= 1;
+                        }
+                        else
+                        {
+                            if (wk_str[wk_columm, wk_line] == null){
+                                wk_line--;
+                            }
+                            if (wk_str[wk_columm, wk_line].Contains("["))
+                            {
+                                wk_line -= 1;
+                            }
+                            else
+                            {
+                                wk_line -= 2;
+                            }
+                        }
+                        /*
+                        if (wk_str[wk_columm, wk_line].Contains("["))
+                        {
+                            wk_line--;
+                        }
+                        */
+                        /*
+                        if(wk_str[wk_columm, wk_line] == null)
+                        {
+                            wk_line--;
+                            while (wk_str[wk_columm, wk_line].Contains("["))
+                            {
+                                wk_line--;
+                            }
+                        }
+                        else
+                        {
+                            wk_line--;
+
+                        }
+                        */
                     }
-                    else if((split[i].Contains("}")))
+                    else if (split[i] == ",")
                     {
-                        wk_struct.Add("}");
-                    }
-                    else if(((split[i]!=("0x0,"))
-                     && (split[i]!=("="))
-                     && (split[i]!=("(gdb)"))
-                     && (!(split[i].Contains("$")))))
-                    {
-                        wk_struct.Add(split[i]);
-                    }
-                }
-                int wk_cnt = 0;
-                int wk_base_cnt = 0;
-                string[,] wk_str = new string[50,10];
-                for (int j = 0; j < wk_struct.Count; j++)
-                {
-                    if (wk_struct[j] == "{")
-                    {
-                        wk_base_cnt++;
-                    }
-                    else if (wk_struct[j] == "}")
-                    {
-                        wk_base_cnt--;
+//                        if(split[i+1] == "0x0")
+//                        {
+//                        }
+//                        else
+                        {
+                            if(wk_str[wk_columm, wk_line] == null)
+                            {
+                                wk_line--;
+                            }
+                            if (wk_str[wk_columm, wk_line] == "--")
+                            {
+                                ;
+                            }
+                            wk_group[0] = 0;
+                        }
+                        wk_columm++;
+                        for(int j = 0; j < wk_line; j++)
+                        {
+                            wk_str[wk_columm, j] = wk_str[wk_columm - 1, j];
+                        }
+                        if(wk_str[wk_columm-1, wk_line].Contains("["))
+                        {
+                            string wk_cnt_str = wk_str[wk_columm - 1, wk_line].Replace("[", "").Replace("]", "");
+                            int wk_cnt = Convert.ToInt32(wk_cnt_str)+1;
+                            wk_str[wk_columm, wk_line] = "[" + wk_cnt.ToString() + "]";
+                            wk_line++;
+                        }
                     }
                     else
                     {
-                        if(wk_base_cnt > 0)
+                        if ((split[i] == "=")
+                        || (split[i] == "")
+                        || (split[i].Contains("0x")))
                         {
-                            for (int k = 0; k < wk_base_cnt - 1; k++)
-                            {
-                                wk_str[wk_cnt, k] = wk_str[wk_cnt - 1, k];
-                            }
-                            wk_str[wk_cnt, wk_base_cnt - 1] = wk_struct[j];
-                             wk_cnt++;
-
+                        }
+                        else
+                        {
+                            wk_str[wk_columm, wk_line] = split[i];
+                            wk_line++;
                         }
                     }
+
                 }
-                for (int x = 0; x < 50; x++)
+
+                for (int x = 0; x < 250; x++)
                 {
                     string sum = "";
                     if (wk_str[x, 0] != null)
                     {
                         sum = ram_name;
-                        for (int y = 0; y < 10; y++)
+                        for (int y = 0; y < 20; y++)
                         {
-                            if (wk_str[x, y] != null)
+                            if ((wk_str[x, y] != null) && (wk_str[x, y] != "--"))
                             {
-                                sum += "." + wk_str[x, y];
+                                if((wk_str[x,y].Contains("["))){
+                                    sum += wk_str[x, y];
+                                }
+                                else
+                                {
+                                    sum += "." + wk_str[x, y];
+                                }
                             }
                         }
                         comboBox2.Items.Add(sum);
